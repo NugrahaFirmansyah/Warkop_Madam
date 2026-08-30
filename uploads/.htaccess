@@ -1,0 +1,35 @@
+# ========================================================
+# UPLOADS FOLDER SECURITY (.htaccess)
+# ========================================================
+# Mencegah eksekusi skrip berbahaya di dalam direktori upload
+
+# 1. Matikan Directory Browsing
+Options -Indexes -ExecCGI
+
+# 2. Matikan Engine PHP di folder ini
+<IfModule mod_php7.c>
+    php_flag engine off
+</IfModule>
+<IfModule mod_php8.c>
+    php_flag engine off
+</IfModule>
+<IfModule mod_php.c>
+    php_flag engine off
+</IfModule>
+
+# 3. Blokir semua file executable & skrip
+<FilesMatch "(?i)\.(php|php3|php4|php5|php7|phtml|pl|py|jsp|asp|htm|html|shtml|sh|cgi|exe|bat|cmd|dll|bin|vbs)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# 4. Paksa serve sebagai berkas statis
+<IfModule mod_mime.c>
+    RemoveHandler .php .phtml .php3 .php4 .php5 .php7
+    RemoveType .php .phtml .php3 .php4 .php5 .php7
+</IfModule>

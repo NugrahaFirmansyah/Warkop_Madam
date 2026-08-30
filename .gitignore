@@ -1,0 +1,14 @@
+# Environment credentials
+.env
+
+# Uploaded dynamic proof files (keep directory)
+uploads/proofs/*
+!uploads/proofs/.gitkeep
+!uploads/.htaccess
+
+# OS / Editor files
+.DS_Store
+Thumbs.db
+*.log
+.vscode/
+.idea/

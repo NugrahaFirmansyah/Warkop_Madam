@@ -1,0 +1,31 @@
+# ========================================================
+# ASSETS MENU FOLDER SECURITY (.htaccess)
+# ========================================================
+# Mencegah eksekusi skrip berbahaya di dalam direktori gambar menu
+
+Options -Indexes -ExecCGI
+
+<IfModule mod_php7.c>
+    php_flag engine off
+</IfModule>
+<IfModule mod_php8.c>
+    php_flag engine off
+</IfModule>
+<IfModule mod_php.c>
+    php_flag engine off
+</IfModule>
+
+<FilesMatch "(?i)\.(php|php3|php4|php5|php7|phtml|pl|py|jsp|asp|htm|html|shtml|sh|cgi|exe|bat|cmd|dll|bin|vbs)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+<IfModule mod_mime.c>
+    RemoveHandler .php .phtml .php3 .php4 .php5 .php7
+    RemoveType .php .phtml .php3 .php4 .php5 .php7
+</IfModule>

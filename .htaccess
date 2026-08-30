@@ -1,0 +1,29 @@
+# ========================================================
+# WARKOP MADAM - ROOT SECURITY CONFIGURATION (.htaccess)
+# ========================================================
+
+# 1. Matikan Directory Browsing / Listing
+Options -Indexes
+
+# 2. Blokir Akses ke Berkas Sensitif
+<FilesMatch "^(\.env|\.git|\.htaccess|\.user\.ini|.*\.sql|.*\.log|.*\.bak|.*\.md)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# 3. HTTP Security Headers (jika Apache mod_headers aktif)
+<IfModule mod_headers.c>
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-XSS-Protection "1; mode=block"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header set X-Permitted-Cross-Domain-Policies "none"
+</IfModule>
+
+# 4. Default Charset UTF-8
+AddDefaultCharset UTF-8
