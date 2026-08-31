@@ -481,7 +481,7 @@ $menu_minuman = [
         <div class="max-w-6xl mx-auto flex items-center justify-between gap-3">
             
             <!-- Logo & Brand Link -->
-            <a href="login.php" class="flex items-center gap-3 group">
+            <a href="index.php" class="flex items-center gap-3 group">
                 <div class="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-black p-0.5 border border-amber-500/40 shadow-lg group-hover:scale-105 transition duration-300 overflow-hidden flex items-center justify-center">
                     <img src="assets/logo.png" alt="Warkop Madam Logo" class="w-full h-full object-contain">
                 </div>
@@ -499,7 +499,7 @@ $menu_minuman = [
                     <i class="fa-solid fa-cart-shopping"></i>
                     <span>Pesanan (<span id="header-order-count">0</span>)</span>
                 </button>
-                <a href="login.php" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-stone-900 hover:bg-stone-800 text-stone-300 text-xs font-semibold border border-stone-800 transition">
+                <a href="index.php" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-stone-900 hover:bg-stone-800 text-stone-300 text-xs font-semibold border border-stone-800 transition">
                     <i class="fa-solid fa-house text-amber-400"></i>
                     <span class="hidden sm:inline">Beranda</span>
                 </a>
