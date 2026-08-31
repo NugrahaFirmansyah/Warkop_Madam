@@ -1,23 +1,58 @@
 <?php
-// Koneksi & Inisialisasi Database Warkop Madam (Secured)
-require_once __DIR__ . '/security.php';
+/**
+ * Warkop Madam - Database Setup & Initializer
+ * Kompatibel dengan Localhost (XAMPP/Laragon) dan Shared Hosting (cPanel/VPS)
+ */
+require_once __DIR__ . '/includes/security.php';
+
+$is_cli = (php_sapi_name() === 'cli');
 
 $host = DB_HOST;
-$username_db = DB_USER;
-$password_db = DB_PASS;
+$port = DB_PORT;
 $dbname = DB_NAME;
+$username = DB_USER;
+$password = DB_PASS;
+
+$logs = [];
+$status_ok = true;
+
+function log_msg($msg, $type = 'info') {
+    global $logs, $is_cli;
+    $logs[] = ['msg' => $msg, 'type' => $type];
+    if ($is_cli) {
+        echo ($type === 'error' ? '[ERROR] ' : '[OK] ') . $msg . "\n";
+    }
+}
 
 try {
-    $pdo = new PDO("mysql:host=$host;charset=utf8mb4", $username_db, $password_db, [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_EMULATE_PREPARES => false
-    ]);
-    
-    // Buat database jika belum ada
-    $pdo->exec("CREATE DATABASE IF NOT EXISTS `$dbname` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
-    $pdo->exec("USE `$dbname`");
+    $pdo = null;
 
-    // Buat tabel users
+    // 1. Coba koneksi langsung ke nama database yang ditentukan di .env (Standar Hosting cPanel)
+    try {
+        $dsn = "mysql:host=$host;port=$port;dbname=$dbname;charset=utf8mb4";
+        $pdo = new PDO($dsn, $username, $password, [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_EMULATE_PREPARES => false
+        ]);
+        log_msg("Berhasil terhubung langsung ke database: `$dbname`.");
+    } catch (PDOException $e_direct) {
+        // Jika database belum ada, coba koneksi ke server MySQL tanpa dbname lalu CREATE DATABASE (Standar Localhost)
+        try {
+            $dsn_root = "mysql:host=$host;port=$port;charset=utf8mb4";
+            $pdo_root = new PDO($dsn_root, $username, $password, [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_EMULATE_PREPARES => false
+            ]);
+            $pdo_root->exec("CREATE DATABASE IF NOT EXISTS `$dbname` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+            $pdo_root->exec("USE `$dbname`");
+            $pdo = $pdo_root;
+            log_msg("Database `$dbname` berhasil dibuat otomatis.");
+        } catch (PDOException $e_create) {
+            throw new Exception("Gagal terhubung atau membuat database: " . $e_direct->getMessage());
+        }
+    }
+
+    // 2. Buat tabel users
     $pdo->exec("CREATE TABLE IF NOT EXISTS users (
         id INT AUTO_INCREMENT PRIMARY KEY,
         nama_lengkap VARCHAR(100) NOT NULL,
@@ -25,9 +60,10 @@ try {
         password VARCHAR(255) NOT NULL,
         role ENUM('admin', 'klien') DEFAULT 'klien',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    log_msg("Tabel `users` siap.");
 
-    // Buat tabel orders untuk mencatat pesanan kasir
+    // 3. Buat tabel orders
     $pdo->exec("CREATE TABLE IF NOT EXISTS orders (
         id INT AUTO_INCREMENT PRIMARY KEY,
         order_number VARCHAR(50) NOT NULL,
@@ -39,17 +75,20 @@ try {
         notes TEXT NULL,
         payment_proof VARCHAR(255) NULL,
         status ENUM('pending', 'diproses', 'selesai', 'dibatalkan') DEFAULT 'pending',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX (status),
+        INDEX (created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    log_msg("Tabel `orders` siap.");
 
     // Pastikan kolom payment_proof ada jika tabel sudah terbuat sebelumnya
     try {
         $pdo->exec("ALTER TABLE orders ADD COLUMN payment_proof VARCHAR(255) NULL AFTER notes");
     } catch (Exception $ex) {
-        // Kolom sudah ada
+        // Kolom sudah ada, abaikan
     }
 
-    // Buat tabel menu_items untuk fitur Tambah & Kelola Menu
+    // 4. Buat tabel menu_items
     $pdo->exec("CREATE TABLE IF NOT EXISTS menu_items (
         id INT AUTO_INCREMENT PRIMARY KEY,
         nama_menu VARCHAR(100) NOT NULL,
@@ -59,10 +98,13 @@ try {
         deskripsi TEXT NULL,
         foto VARCHAR(255) DEFAULT 'assets/logo.png',
         status ENUM('tersedia', 'habis') DEFAULT 'tersedia',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX (kategori),
+        INDEX (status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    log_msg("Tabel `menu_items` siap.");
 
-    // Cek akun admin default
+    // 5. Cek Akun Admin Default
     $stmt = $pdo->prepare("SELECT id, username FROM users WHERE role = 'admin' LIMIT 1");
     $stmt->execute();
     $admin = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -71,12 +113,12 @@ try {
         $default_pass = password_hash('admin123', PASSWORD_DEFAULT);
         $insert = $pdo->prepare("INSERT INTO users (nama_lengkap, username, password, role) VALUES ('Administrator Warkop', 'admin', :pass, 'admin')");
         $insert->execute(['pass' => $default_pass]);
-        echo "Akun admin default berhasil dibuat: username=admin, password=admin123\n";
+        log_msg("Akun admin default berhasil dibuat: <b>admin</b> / <b>admin123</b>");
     } else {
-        echo "Akun admin sudah tersedia: " . e($admin['username']) . "\n";
+        log_msg("Akun admin sudah aktif: <b>" . e($admin['username']) . "</b>");
     }
 
-    // Seed sample menu_items jika kosong
+    // 6. Seed Sample Menu Items jika tabel masih kosong
     $menu_count = $pdo->query("SELECT COUNT(*) FROM menu_items")->fetchColumn();
     if ($menu_count == 0) {
         $menus = [
@@ -98,41 +140,99 @@ try {
             ['Roti Bakar Keju / Coklat', 'cemilan', 'Roti Bakar', 12000, 'Roti tebal panggang lembut dengan pilihan topping keju gurih atau coklat lumer.', 'assets/menu/roti_bakar.jpg'],
 
             // Minuman
-            ['Kopi MADAM Signature', 'minuman', 'Aneka Kopi', 12000, 'Racikan kopi hitam khas racikan barista Warkop Madam.', 'assets/menu/kopi_madam.jpg'],
-            ['Kopi Susu Aren Madam', 'minuman', 'Aneka Kopi', 12000, 'Kopi susu creamy berpadu gula aren murni pilihan disajikan dingin menyegarkan.', 'assets/menu/kopi_susu.jpg'],
-            ['MaxTea Tarik / Teh Manis', 'minuman', 'Tea / Teh', 10000, 'Teh tarik berbuih creamy nikmat atau es teh manis segar pelepas dahaga.', 'assets/menu/teh_tarik.jpg'],
-            ['Nutrisari Aneka Rasa (Ice)', 'minuman', 'Segar Dingin', 8000, 'Pilihan rasa buah segar dengan es batu melimpah.', 'assets/menu/nutrisari_jeruk.jpg'],
-            ['Soda Susu Gembira', 'minuman', 'Suplemen & Soda', 12000, 'Perpaduan soda segar, sirup merah manis legit, dan susu kental manis legendaris.', 'assets/menu/soda_susu.jpg']
+            ['Kopi Madam Special', 'minuman', 'Signature Coffee', 10000, 'Kopi hitam racikan legendaris khas Warkop Madam dengan aroma pekat harum.', 'assets/menu/kopi_madam.jpg'],
+            ['Kopi Susu Creamy', 'minuman', 'Signature Coffee', 12000, 'Paduan kopi mantap dengan kental manis legit gurih creamy.', 'assets/menu/kopi_susu.jpg'],
+            ['Teh Tarik', 'minuman', 'Non-Coffee & Milk', 10000, 'Teh pekat berbuih lembut ditarik berpadu susu manis segar.', 'assets/menu/teh_tarik.jpg'],
+            ['Nutrisari Jeruk Peras', 'minuman', 'Minuman Segar', 6000, 'Kesegaran rasa jeruk peras dingin dengan es batu segar pelepas dahaga.', 'assets/menu/nutrisari_jeruk.jpg']
         ];
 
-        $stmt_menu = $pdo->prepare("INSERT INTO menu_items (nama_menu, kategori, subkategori, harga, deskripsi, foto, status) VALUES (?, ?, ?, ?, ?, ?, 'tersedia')");
+        $ins_menu = $pdo->prepare("INSERT INTO menu_items (nama_menu, kategori, subkategori, harga, deskripsi, foto, status) VALUES (?, ?, ?, ?, ?, ?, 'tersedia')");
         foreach ($menus as $m) {
-            $stmt_menu->execute($m);
+            $ins_menu->execute($m);
         }
+        log_msg("Seeding katalog " . count($menus) . " menu awal berhasil.");
+    } else {
+        log_msg("Katalog menu sudah terisi ($menu_count item).");
     }
 
-    // Seed sample orders jika tabel orders kosong
-    $orders_count = $pdo->query("SELECT COUNT(*) FROM orders")->fetchColumn();
-    if ($orders_count == 0) {
-        $sample_orders = [
-            ['#MDM-8821', 'Budi Santoso', 'Meja 04', 'QRIS', 43000, '2x Nasi Goreng Madam, 1x Kopi MADAM Signature', 'Pedas sedang', 'selesai'],
-            ['#MDM-8822', 'Rian Pratama', 'Meja 02', 'Transfer Mandiri', 34000, '1x Nasi Goreng Cabe Ijo, 1x Pisang Keju', '', 'selesai'],
-            ['#MDM-8823', 'Siti Rahma', 'Meja 07', 'QRIS', 37000, '1x Ayam Goreng Sambal Ijo, 1x Kopi Susu Aren Madam', 'Sambal dipisah', 'selesai'],
-            ['#MDM-8824', 'Dimas Arya', 'Meja 01', 'Tunai', 41000, '1x Mie Nyemek, 1x Kentang Goreng, 1x Kopi MADAM Signature', '', 'selesai'],
-            ['#MDM-8825', 'Agus Setiawan', 'Meja 05', 'QRIS', 51000, '2x Mie Goreng, 1x Cireng Isi', '', 'selesai'],
-            ['#MDM-8826', 'Nabila Putri', 'Meja 03', 'QRIS', 31000, '1x Nasi Goreng Madam, 1x Kopi Susu Aren Madam', 'Manis legit', 'selesai'],
-            ['#MDM-8827', 'Fajar Ramadhan', 'Meja 06', 'Tunai', 44000, '1x Ayam Maranggi, 1x Pisang Keju, 1x Es Teh Manis', '', 'selesai'],
-            ['#MDM-8828', 'Kevin Sanjaya', 'Meja 08', 'Transfer Mandiri', 35000, '1x Nasi Goreng Madam, 1x Cireng Isi, 1x Nutrisari Aneka Rasa (Ice)', '', 'diproses'],
-            ['#MDM-8829', 'Anisa Melani', 'Meja 10', 'QRIS', 24000, '2x Kopi MADAM Signature', 'Panas', 'pending']
-        ];
+    log_msg("Setup Database Selesai & Sistem Siap Digunakan!");
 
-        $stmt_order = $pdo->prepare("INSERT INTO orders (order_number, customer_name, table_number, payment_method, total_price, order_items, notes, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-        foreach ($sample_orders as $so) {
-            $stmt_order->execute($so);
-        }
-    }
-
-} catch (PDOException $e) {
-    error_log("Database initialization error: " . $e->getMessage());
-    echo "Info database aman: Inisialisasi selesai.\n";
+} catch (Exception $e) {
+    $status_ok = false;
+    log_msg("Gagal inisialisasi: " . $e->getMessage(), 'error');
 }
+
+// Jika dijalankan melalui CLI, hentikan output web
+if ($is_cli) {
+    exit($status_ok ? 0 : 1);
+}
+?>
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inisialisasi Database - Warkop Madam</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .font-serif-title { font-family: 'Playfair Display', serif; }
+    </style>
+</head>
+<body class="bg-black text-stone-100 min-h-screen flex items-center justify-center p-4 selection:bg-amber-500 selection:text-stone-950">
+
+    <div class="max-w-lg w-full bg-stone-950/95 backdrop-blur-2xl rounded-3xl p-8 border border-stone-800 shadow-2xl relative overflow-hidden">
+        
+        <!-- Top Accent Line -->
+        <div class="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-1 bg-gradient-to-r from-transparent via-amber-500 to-transparent rounded-full"></div>
+
+        <!-- Header -->
+        <div class="text-center mb-6">
+            <div class="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto mb-3 shadow-lg">
+                <i class="fa-solid fa-database text-2xl"></i>
+            </div>
+            <h1 class="text-2xl font-bold font-serif-title text-amber-300">Warkop Madam</h1>
+            <p class="text-stone-400 text-xs mt-1">Inisialisasi & Pemeriksaan Database</p>
+        </div>
+
+        <!-- Status Log Card -->
+        <div class="space-y-2.5 mb-6">
+            <?php foreach ($logs as $log): ?>
+                <?php if ($log['type'] === 'error'): ?>
+                    <div class="p-3.5 bg-red-950/40 border border-red-800/60 rounded-xl text-red-300 text-xs flex items-start gap-2.5">
+                        <i class="fa-solid fa-circle-xmark text-red-400 text-sm mt-0.5 shrink-0"></i>
+                        <span><?php echo $log['msg']; ?></span>
+                    </div>
+                <?php else: ?>
+                    <div class="p-3 bg-stone-900/70 border border-stone-800 rounded-xl text-stone-300 text-xs flex items-start gap-2.5">
+                        <i class="fa-solid fa-circle-check text-emerald-400 text-sm mt-0.5 shrink-0"></i>
+                        <span><?php echo $log['msg']; ?></span>
+                    </div>
+                <?php endif; ?>
+            <?php endforeach; ?>
+        </div>
+
+        <!-- Quick Access Buttons -->
+        <div class="grid grid-cols-2 gap-3 pt-2">
+            <a href="menu.php" class="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-stone-900 hover:bg-stone-800 text-stone-200 font-semibold text-xs border border-stone-700 transition">
+                <i class="fa-solid fa-book-open text-amber-400"></i>
+                <span>Menu Tamu</span>
+            </a>
+            <a href="login_admin.php" class="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-stone-950 font-bold text-xs shadow-lg shadow-amber-950/40 transition">
+                <i class="fa-solid fa-lock text-stone-950"></i>
+                <span>Login Admin</span>
+            </a>
+        </div>
+
+        <!-- Credentials Info Box -->
+        <div class="mt-6 p-4 rounded-xl bg-amber-500/5 border border-amber-500/20 text-center">
+            <span class="text-[11px] text-stone-400 block mb-1">Kredensial Default Admin:</span>
+            <span class="text-xs text-amber-300 font-mono font-bold">Username: <b>admin</b> | Password: <b>admin123</b></span>
+        </div>
+
+    </div>
+
+</body>
+</html>

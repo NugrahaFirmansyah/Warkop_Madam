@@ -1,12 +1,12 @@
 # ========================================================
-# WARKOP MADAM - ROOT SECURITY CONFIGURATION (.htaccess)
+# WARKOP MADAM - PRODUCTION SERVER CONFIGURATION (.htaccess)
 # ========================================================
 
 # 1. Matikan Directory Browsing / Listing
-Options -Indexes
+Options -Indexes -MultiViews
 
-# 2. Blokir Akses ke Berkas Sensitif
-<FilesMatch "^(\.env|\.git|\.htaccess|\.user\.ini|.*\.sql|.*\.log|.*\.bak|.*\.md)$">
+# 2. Blokir Akses ke Berkas Sensitif & Konfigurasi
+<FilesMatch "(?i)^(\.env|\.git|\.htaccess|\.user\.ini|.*\.sql|.*\.log|.*\.bak|.*\.md|composer\.(json|lock))$">
     <IfModule mod_authz_core.c>
         Require all denied
     </IfModule>
@@ -16,7 +16,7 @@ Options -Indexes
     </IfModule>
 </FilesMatch>
 
-# 3. HTTP Security Headers (jika Apache mod_headers aktif)
+# 3. HTTP Security Headers
 <IfModule mod_headers.c>
     Header always set X-Frame-Options "SAMEORIGIN"
     Header always set X-Content-Type-Options "nosniff"
@@ -25,5 +25,20 @@ Options -Indexes
     Header set X-Permitted-Cross-Domain-Policies "none"
 </IfModule>
 
-# 4. Default Charset UTF-8
+# 4. Gzip / Deflate Compression untuk Performa Cepat
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/plain text/html text/xml text/css text/javascript
+    AddOutputFilterByType DEFLATE application/xml application/xhtml+xml application/rss+xml
+    AddOutputFilterByType DEFLATE application/javascript application/x-javascript application/json
+    AddOutputFilterByType DEFLATE image/svg+xml
+</IfModule>
+
+# 5. MIME Types & Encoding
+<IfModule mod_mime.c>
+    AddType image/webp .webp
+    AddType application/json .json
+    AddType font/woff2 .woff2
+</IfModule>
+
+# 6. Default Charset UTF-8
 AddDefaultCharset UTF-8
