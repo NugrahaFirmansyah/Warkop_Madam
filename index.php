@@ -79,7 +79,7 @@ if (!isset($_SESSION['role'])) {
                 </div>
 
                 <p class="text-stone-400 text-sm mt-3.5 max-w-xs leading-relaxed">
-                    Nikmati racikan kopi khas dan sajian hangat favorit Anda dengan suasana santai.
+                    Nikmati kopi khas dalam sajian panas dan dingin dengan suasana santai di madam
                 </p>
             </div>
 
