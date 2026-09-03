@@ -467,9 +467,77 @@ $menu_minuman = [
         .gold-border-glow:hover {
             box-shadow: 0 8px 30px -2px rgba(245, 158, 11, 0.3);
         }
+
+        /* Scroll Reveal Effect for Menu Cards & Sections */
+        .menu-card, .menu-section-header, .friendly-chip {
+            opacity: 0;
+            transform: translateY(22px);
+            transition: opacity 0.55s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.55s cubic-bezier(0.2, 0.8, 0.2, 1), border-color 0.3s ease, box-shadow 0.3s ease;
+            will-change: opacity, transform;
+        }
+        .menu-card.is-visible, .menu-section-header.is-visible, .friendly-chip.is-visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .menu-card:hover {
+            transform: translateY(-4px);
+        }
+
+        /* Category Pill Active State with Glowing Accent */
+        .category-pill {
+            transition: all 0.25s ease-in-out;
+        }
+        .category-pill.active {
+            background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+            color: #0c0a09 !important;
+            box-shadow: 0 4px 20px -2px rgba(245, 158, 11, 0.45);
+            border-color: #fbbf24 !important;
+            transform: scale(1.03);
+        }
+        .category-pill.active i, .category-pill.active span {
+            color: #0c0a09 !important;
+            font-weight: 800;
+        }
+
+        /* Toast Feedback Notification */
+        #cart-toast {
+            transition: transform 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.25s ease;
+        }
+        #cart-toast.toast-hidden {
+            transform: translate(-50%, 40px) scale(0.92);
+            opacity: 0;
+            pointer-events: none;
+        }
+        #cart-toast.toast-visible {
+            transform: translate(-50%, 0) scale(1);
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* Badge Pop Animation */
+        @keyframes qtyBadgePop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.4); color: #fbbf24; }
+            100% { transform: scale(1); }
+        }
+        .qty-pop {
+            animation: qtyBadgePop 0.25s ease-out;
+        }
+
+        /* Friendly Pulse Badge */
+        @keyframes subtlePulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.75; }
+        }
+        .subtle-pulse {
+            animation: subtlePulse 2.5s infinite;
+        }
     </style>
 </head>
 <body class="bg-black text-stone-100 min-h-screen selection:bg-amber-500 selection:text-stone-950 pb-32">
+
+    <!-- Top Scroll Progress Indicator Bar -->
+    <div id="scroll-progress-bar" class="fixed top-0 left-0 h-1 bg-gradient-to-r from-amber-500 via-orange-400 to-amber-300 z-[60] transition-all duration-75 ease-out shadow-[0_0_12px_rgba(245,158,11,0.8)]" style="width: 0%;"></div>
 
     <!-- Ambient Glowing Background Elements -->
     <div class="fixed -top-40 -left-40 w-[500px] h-[500px] bg-amber-600/10 rounded-full blur-[140px] pointer-events-none"></div>
@@ -477,7 +545,7 @@ $menu_minuman = [
     <div class="fixed -bottom-40 left-1/3 w-[500px] h-[500px] bg-amber-500/10 rounded-full blur-[140px] pointer-events-none"></div>
 
     <!-- Sticky Navigation Header -->
-    <header class="sticky top-0 z-50 bg-stone-950/95 backdrop-blur-xl border-b border-stone-800 px-4 py-3 sm:px-8 shadow-2xl">
+    <header id="main-header" class="sticky top-0 z-50 bg-stone-950/90 backdrop-blur-xl border-b border-stone-800/80 px-4 py-3 sm:px-8 shadow-2xl transition-all duration-300">
         <div class="max-w-6xl mx-auto flex items-center justify-between gap-3">
             
             <!-- Logo & Brand Link -->
@@ -489,13 +557,16 @@ $menu_minuman = [
                     <h1 class="text-base sm:text-lg font-bold font-serif-title tracking-wider text-amber-300 group-hover:text-amber-200 transition">
                         WARKOP MADAM
                     </h1>
-                    <p class="text-[10px] sm:text-[11px] text-stone-400 font-medium">Buku Menu & Order Online</p>
+                    <p class="text-[10px] sm:text-[11px] text-stone-400 font-medium flex items-center gap-1.5">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block animate-ping"></span>
+                        <span>Buka &bull; Order Mudah & Cepat</span>
+                    </p>
                 </div>
             </a>
 
             <!-- Action / Cart Trigger -->
             <div class="flex items-center gap-2">
-                <button onclick="openPaymentModal()" class="relative inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 text-xs font-bold transition shadow-lg">
+                <button onclick="openPaymentModal()" class="relative inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-stone-950 text-xs font-bold transition shadow-lg shadow-amber-500/20 active:scale-95">
                     <i class="fa-solid fa-cart-shopping"></i>
                     <span>Pesanan (<span id="header-order-count">0</span>)</span>
                 </button>
@@ -511,12 +582,12 @@ $menu_minuman = [
     <!-- Main Container -->
     <main class="max-w-6xl mx-auto px-4 sm:px-6 pt-6 relative z-10">
 
-        <!-- Top Banner Header -->
+        <!-- Friendly Top Welcome & Banner Header -->
         <div class="text-center mb-6 relative">
-            <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-950/60 border border-amber-600/40 text-amber-300 text-xs font-semibold mb-2 shadow-inner">
-                <i class="fa-solid fa-star text-amber-400 text-[10px]"></i>
-                <span class="tracking-widest uppercase">Pilih Menu &bull; Pesan &bull; Bayar Mudah</span>
-                <i class="fa-solid fa-star text-amber-400 text-[10px]"></i>
+            <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-950/60 border border-amber-600/40 text-amber-300 text-xs font-semibold mb-2.5 shadow-inner">
+                <span class="text-sm">☕</span>
+                <span class="tracking-wide">Warkop Madam &bull; Suasana Santai & Rasa Istimewa</span>
+                <span class="text-sm">✨</span>
             </div>
             
             <h2 class="text-3xl sm:text-5xl font-black font-serif-title bg-gradient-to-r from-amber-100 via-amber-400 to-amber-200 bg-clip-text text-transparent tracking-wide">
@@ -525,7 +596,7 @@ $menu_minuman = [
         </div>
 
         <!-- Search Bar with Live Filter -->
-        <div class="max-w-md mx-auto mb-6">
+        <div class="max-w-md mx-auto mb-4">
             <div class="relative">
                 <input type="text" 
                        id="menu-search-input" 
@@ -539,19 +610,47 @@ $menu_minuman = [
             </div>
         </div>
 
-        <!-- Sticky Quick Category Tabs -->
-        <div class="flex items-center justify-center gap-2 sm:gap-3 mb-10 sticky top-[62px] z-40 py-2.5 bg-black/90 backdrop-blur-md border-y border-stone-800/80 overflow-x-auto no-scrollbar">
-            <a href="#menu-makanan" class="category-pill shrink-0 px-4 sm:px-5 py-2 rounded-xl bg-amber-500 text-stone-950 font-bold text-xs sm:text-sm shadow-md hover:bg-amber-400 transition flex items-center gap-2">
+        <!-- Quick Filter Tags / Friendly Chips -->
+        <div class="flex items-center justify-center flex-wrap gap-2 mb-6 max-w-xl mx-auto">
+            <button onclick="filterByTag('')" class="friendly-chip text-[11px] px-3 py-1 rounded-full bg-stone-900 hover:bg-stone-800 text-stone-300 border border-stone-800 hover:border-amber-500/40 transition flex items-center gap-1.5">
+                <i class="fa-solid fa-border-all text-amber-400 text-[10px]"></i>
+                <span>Semua</span>
+            </button>
+            <button onclick="filterByTag('nasi')" class="friendly-chip text-[11px] px-3 py-1 rounded-full bg-stone-900 hover:bg-stone-800 text-stone-300 border border-stone-800 hover:border-amber-500/40 transition flex items-center gap-1.5">
+                <i class="fa-solid fa-bowl-rice text-amber-400 text-[10px]"></i>
+                <span>Nasi & Mie</span>
+            </button>
+            <button onclick="filterByTag('ayam')" class="friendly-chip text-[11px] px-3 py-1 rounded-full bg-stone-900 hover:bg-stone-800 text-stone-300 border border-stone-800 hover:border-amber-500/40 transition flex items-center gap-1.5">
+                <i class="fa-solid fa-drumstick-bite text-amber-400 text-[10px]"></i>
+                <span>Ayam & Lauk</span>
+            </button>
+            <button onclick="filterByTag('cireng')" class="friendly-chip text-[11px] px-3 py-1 rounded-full bg-stone-900 hover:bg-stone-800 text-stone-300 border border-stone-800 hover:border-amber-500/40 transition flex items-center gap-1.5">
+                <i class="fa-solid fa-cookie-bite text-amber-400 text-[10px]"></i>
+                <span>Cemilan</span>
+            </button>
+            <button onclick="filterByTag('kopi')" class="friendly-chip text-[11px] px-3 py-1 rounded-full bg-stone-900 hover:bg-stone-800 text-stone-300 border border-stone-800 hover:border-amber-500/40 transition flex items-center gap-1.5">
+                <i class="fa-solid fa-mug-hot text-amber-400 text-[10px]"></i>
+                <span>Kopi Khas</span>
+            </button>
+            <button onclick="filterByTag('es')" class="friendly-chip text-[11px] px-3 py-1 rounded-full bg-stone-900 hover:bg-stone-800 text-stone-300 border border-stone-800 hover:border-amber-500/40 transition flex items-center gap-1.5">
+                <i class="fa-solid fa-snowflake text-cyan-400 text-[10px]"></i>
+                <span>Minuman Dingin</span>
+            </button>
+        </div>
+
+        <!-- Sticky Quick Category Tabs with Scrollspy -->
+        <div id="category-tabs-bar" class="flex items-center justify-center gap-2 sm:gap-3 mb-10 sticky top-[62px] z-40 py-2.5 bg-black/90 backdrop-blur-md border-y border-stone-800/80 overflow-x-auto no-scrollbar shadow-lg">
+            <a href="#menu-makanan" id="tab-menu-makanan" class="category-pill active shrink-0 px-4 sm:px-5 py-2 rounded-xl bg-amber-500 text-stone-950 font-bold text-xs sm:text-sm shadow-md transition flex items-center gap-2">
                 <i class="fa-solid fa-utensils"></i>
-                <span>1. Makanan (Atas)</span>
+                <span>1. Makanan</span>
             </a>
-            <a href="#menu-cemilan" class="category-pill shrink-0 px-4 sm:px-5 py-2 rounded-xl bg-stone-900 hover:bg-stone-800 text-amber-300 hover:text-amber-200 font-semibold text-xs sm:text-sm border border-stone-800 hover:border-amber-500/30 transition flex items-center gap-2">
+            <a href="#menu-cemilan" id="tab-menu-cemilan" class="category-pill shrink-0 px-4 sm:px-5 py-2 rounded-xl bg-stone-900 hover:bg-stone-800 text-amber-300 hover:text-amber-200 font-semibold text-xs sm:text-sm border border-stone-800 hover:border-amber-500/30 transition flex items-center gap-2">
                 <i class="fa-solid fa-cookie-bite text-amber-400"></i>
-                <span>2. Cemilan (Tengah)</span>
+                <span>2. Cemilan</span>
             </a>
-            <a href="#menu-minuman" class="category-pill shrink-0 px-4 sm:px-5 py-2 rounded-xl bg-stone-900 hover:bg-stone-800 text-amber-300 hover:text-amber-200 font-semibold text-xs sm:text-sm border border-stone-800 hover:border-amber-500/30 transition flex items-center gap-2">
+            <a href="#menu-minuman" id="tab-menu-minuman" class="category-pill shrink-0 px-4 sm:px-5 py-2 rounded-xl bg-stone-900 hover:bg-stone-800 text-amber-300 hover:text-amber-200 font-semibold text-xs sm:text-sm border border-stone-800 hover:border-amber-500/30 transition flex items-center gap-2">
                 <i class="fa-solid fa-mug-hot text-amber-400"></i>
-                <span>3. Minuman (Bawah)</span>
+                <span>3. Minuman</span>
             </a>
         </div>
 
@@ -1532,8 +1631,14 @@ $menu_minuman = [
         </div>
     </div>
 
-    <!-- Back to Top Button -->
-    <button onclick="window.scrollTo({top: 0, behavior: 'smooth'})" id="back-to-top" class="fixed bottom-24 right-5 z-30 w-11 h-11 rounded-full bg-stone-900/90 text-amber-400 border border-amber-500/40 shadow-xl flex items-center justify-center hover:bg-amber-500 hover:text-stone-950 transition opacity-80 hover:opacity-100">
+    <!-- Friendly Toast Notification Popup -->
+    <div id="cart-toast" class="toast-hidden fixed bottom-24 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl bg-stone-900/95 border border-amber-500/50 text-amber-300 text-xs font-semibold shadow-2xl backdrop-blur-xl flex items-center gap-2.5">
+        <span id="toast-icon" class="w-6 h-6 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center text-xs">✨</span>
+        <span id="toast-msg">Item berhasil ditambahkan!</span>
+    </div>
+
+    <!-- Enhanced Back to Top Button with Smooth Scroll -->
+    <button onclick="window.scrollTo({top: 0, behavior: 'smooth'})" id="back-to-top" class="fixed bottom-24 right-5 z-30 w-11 h-11 rounded-full bg-stone-900/90 text-amber-400 border border-amber-500/40 shadow-xl flex items-center justify-center hover:bg-amber-500 hover:text-stone-950 transition-all duration-300 opacity-0 pointer-events-none translate-y-4 hover:scale-110 active:scale-95">
         <i class="fa-solid fa-arrow-up text-sm"></i>
     </button>
 
@@ -1553,6 +1658,7 @@ $menu_minuman = [
         let myOrder = [];
         let selectedPayment = 'QRIS';
         let latestOrderReceipt = null;
+        let toastTimeout = null;
 
         // Change Quantity directly with + and - buttons
         function changeItemQty(name, price, delta, category) {
@@ -1564,34 +1670,40 @@ $menu_minuman = [
 
             if (item) {
                 item.qty += delta;
+                if (delta > 0) {
+                    showToast(`+1 ${name} (${item.qty} di pesanan)`, '✨');
+                } else if (item.qty > 0) {
+                    showToast(`-1 ${name} (${item.qty} tersisa)`, '🗑️');
+                } else {
+                    showToast(`${name} dihapus dari pesanan`, 'ℹ️');
+                }
+
                 if (item.qty <= 0) {
                     myOrder = myOrder.filter(i => i.name !== name);
                 }
             }
 
-            updateAllQtyBadges();
+            updateAllQtyBadges(name);
             renderFloatingBar();
         }
 
-        // Update all badge numbers in the cards in real-time
-        function updateAllQtyBadges() {
+        // Update all badge numbers in the cards in real-time with pop animation
+        function updateAllQtyBadges(activeName = null) {
             document.querySelectorAll('.item-qty-badge').forEach(badge => {
                 badge.innerText = '0';
             });
 
-            myOrder.forEach(item => {
-                // Find all badges matching md5-style or element id
-                const badge = document.querySelector(`[id^="qty-"]`);
-                // Query by generated md5 or iterate
-            });
-
-            // Update badge by name
+            // Update badge by md5 name
             document.querySelectorAll('[id^="qty-"]').forEach(el => {
                 const id = el.id.replace('qty-', '');
-                // Check if matches md5
                 myOrder.forEach(item => {
                     if (md5(item.name) === id) {
                         el.innerText = item.qty;
+                        if (activeName && item.name === activeName) {
+                            el.classList.remove('qty-pop');
+                            void el.offsetWidth; // Trigger reflow
+                            el.classList.add('qty-pop');
+                        }
                     }
                 });
             });
@@ -2052,6 +2164,35 @@ $menu_minuman = [
             document.getElementById('receipt-modal').classList.add('hidden');
         }
 
+        // Friendly Toast Notification Helper
+        function showToast(msg, icon = '✨') {
+            const toast = document.getElementById('cart-toast');
+            const toastMsg = document.getElementById('toast-msg');
+            const toastIcon = document.getElementById('toast-icon');
+            if (!toast || !toastMsg) return;
+
+            toastMsg.innerText = msg;
+            toastIcon.innerText = icon;
+
+            toast.classList.remove('toast-hidden');
+            toast.classList.add('toast-visible');
+
+            if (toastTimeout) clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => {
+                toast.classList.remove('toast-visible');
+                toast.classList.add('toast-hidden');
+            }, 2200);
+        }
+
+        // Quick Tag Filter (Friendly Chips)
+        function filterByTag(keyword) {
+            const input = document.getElementById('menu-search-input');
+            if (input) {
+                input.value = keyword;
+                searchMenuItems();
+            }
+        }
+
         // Live Search System
         function searchMenuItems() {
             const query = document.getElementById('menu-search-input').value.trim().toLowerCase();
@@ -2070,13 +2211,18 @@ $menu_minuman = [
                     const desc = card.getAttribute('data-desc') || '';
                     if (name.includes(query) || desc.includes(query)) {
                         card.style.display = '';
+                        card.classList.add('is-visible');
                         matchCount++;
                     } else {
                         card.style.display = 'none';
                     }
                 });
 
-                searchText.innerText = `Menemukan ${matchCount} menu untuk kata kunci "${query}"`;
+                if (matchCount === 0) {
+                    searchText.innerHTML = `<span>Menu tidak ditemukan untuk <b>"${query}"</b>. Coba kata kunci lain ya! 😊</span>`;
+                } else {
+                    searchText.innerHTML = `<span>Menemukan <b>${matchCount}</b> menu untuk kata kunci "${query}"</span>`;
+                }
             } else {
                 clearBtn.classList.add('hidden');
                 searchInfo.classList.add('hidden');
@@ -2111,6 +2257,108 @@ $menu_minuman = [
                 document.getElementById('receipt-modal').classList.add('hidden');
             }
         });
+
+        // ==============================================================
+        // SCROLL EFFECTS & INTERACTIVE SCROLLSPY
+        // ==============================================================
+        function initScrollAnimations() {
+            // 1. Scroll Reveal Observer for Menu Cards and Friendly Elements
+            const observerOptions = {
+                root: null,
+                rootMargin: '0px 0px -40px 0px',
+                threshold: 0.1
+            };
+
+            const revealObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach((entry, index) => {
+                    if (entry.isIntersecting) {
+                        // Stagger effect when scrolling
+                        setTimeout(() => {
+                            entry.target.classList.add('is-visible');
+                        }, 50);
+                        observer.unobserve(entry.target);
+                    }
+                });
+            }, observerOptions);
+
+            document.querySelectorAll('.menu-card, .friendly-chip, .menu-section-header').forEach(el => {
+                revealObserver.observe(el);
+            });
+
+            // 2. Window Scroll Event: Progress Bar, Header Elevation, Back to Top, and Scrollspy
+            const progressBar = document.getElementById('scroll-progress-bar');
+            const backToTopBtn = document.getElementById('back-to-top');
+            const mainHeader = document.getElementById('main-header');
+            const sections = document.querySelectorAll('section.menu-section');
+            const tabLinks = {
+                'menu-makanan': document.getElementById('tab-menu-makanan'),
+                'menu-cemilan': document.getElementById('tab-menu-cemilan'),
+                'menu-minuman': document.getElementById('tab-menu-minuman')
+            };
+
+            window.addEventListener('scroll', () => {
+                const scrollTop = window.scrollY || document.documentElement.scrollTop;
+                const docHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                
+                // A. Update Top Scroll Progress Bar
+                if (progressBar && docHeight > 0) {
+                    const scrollPercent = (scrollTop / docHeight) * 100;
+                    progressBar.style.width = Math.min(100, Math.max(0, scrollPercent)) + '%';
+                }
+
+                // B. Back to Top Button Visibility
+                if (backToTopBtn) {
+                    if (scrollTop > 280) {
+                        backToTopBtn.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-4');
+                        backToTopBtn.classList.add('opacity-100', 'pointer-events-auto', 'translate-y-0');
+                    } else {
+                        backToTopBtn.classList.add('opacity-0', 'pointer-events-none', 'translate-y-4');
+                        backToTopBtn.classList.remove('opacity-100', 'pointer-events-auto', 'translate-y-0');
+                    }
+                }
+
+                // C. Header Elevation on Scroll
+                if (mainHeader) {
+                    if (scrollTop > 40) {
+                        mainHeader.classList.add('bg-stone-950/98', 'border-amber-500/30', 'shadow-[0_10px_30px_rgba(0,0,0,0.8)]');
+                        mainHeader.classList.remove('bg-stone-950/90', 'border-stone-800/80');
+                    } else {
+                        mainHeader.classList.remove('bg-stone-950/98', 'border-amber-500/30', 'shadow-[0_10px_30px_rgba(0,0,0,0.8)]');
+                        mainHeader.classList.add('bg-stone-950/90', 'border-stone-800/80');
+                    }
+                }
+
+                // D. Active Category Tab Scrollspy
+                let currentSectionId = '';
+                sections.forEach(sec => {
+                    const rect = sec.getBoundingClientRect();
+                    if (rect.top <= 180 && rect.bottom >= 180) {
+                        currentSectionId = sec.getAttribute('id');
+                    }
+                });
+
+                if (currentSectionId && tabLinks[currentSectionId]) {
+                    Object.values(tabLinks).forEach(tab => {
+                        if (tab) {
+                            tab.classList.remove('active', 'bg-amber-500', 'text-stone-950');
+                            tab.classList.add('bg-stone-900', 'text-amber-300');
+                        }
+                    });
+                    const activeTab = tabLinks[currentSectionId];
+                    if (activeTab) {
+                        activeTab.classList.add('active');
+                        activeTab.classList.remove('bg-stone-900', 'text-amber-300');
+                    }
+                }
+            }, { passive: true });
+        }
+
+        // Initialize when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initScrollAnimations);
+        } else {
+            initScrollAnimations();
+        }
     </script>
 
 </body>
