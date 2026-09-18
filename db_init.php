@@ -74,19 +74,40 @@ try {
         order_items TEXT NOT NULL,
         notes TEXT NULL,
         payment_proof VARCHAR(255) NULL,
+        ai_status ENUM('valid', 'review', 'invalid', 'skipped') DEFAULT 'skipped',
+        ai_confidence INT DEFAULT 0,
+        ai_detected_amount INT NULL,
+        ai_reference_no VARCHAR(100) NULL,
+        ai_analysis_json LONGTEXT NULL,
+        proof_hash VARCHAR(64) NULL,
         status ENUM('pending', 'diproses', 'selesai', 'dibatalkan') DEFAULT 'pending',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         INDEX (status),
+        INDEX (ai_status),
+        INDEX (proof_hash),
         INDEX (created_at)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
     log_msg("Tabel `orders` siap.");
 
-    // Pastikan kolom payment_proof ada jika tabel sudah terbuat sebelumnya
-    try {
-        $pdo->exec("ALTER TABLE orders ADD COLUMN payment_proof VARCHAR(255) NULL AFTER notes");
-    } catch (Exception $ex) {
-        // Kolom sudah ada, abaikan
+    // Pastikan kolom payment_proof & AI verification ada jika tabel sudah terbuat sebelumnya
+    $alter_queries = [
+        "ALTER TABLE orders ADD COLUMN payment_proof VARCHAR(255) NULL AFTER notes",
+        "ALTER TABLE orders ADD COLUMN ai_status ENUM('valid', 'review', 'invalid', 'skipped') DEFAULT 'skipped' AFTER payment_proof",
+        "ALTER TABLE orders ADD COLUMN ai_confidence INT DEFAULT 0 AFTER ai_status",
+        "ALTER TABLE orders ADD COLUMN ai_detected_amount INT NULL AFTER ai_confidence",
+        "ALTER TABLE orders ADD COLUMN ai_reference_no VARCHAR(100) NULL AFTER ai_detected_amount",
+        "ALTER TABLE orders ADD COLUMN ai_analysis_json LONGTEXT NULL AFTER ai_reference_no",
+        "ALTER TABLE orders ADD COLUMN proof_hash VARCHAR(64) NULL AFTER ai_analysis_json"
+    ];
+    foreach ($alter_queries as $q) {
+        try {
+            $pdo->exec($q);
+        } catch (Exception $ex) {
+            // Kolom sudah ada, abaikan
+        }
     }
+    log_msg("Skema kolom verifikasi AI bukti pembayaran diperiksa & siap.");
+
 
     // 4. Buat tabel menu_items
     $pdo->exec("CREATE TABLE IF NOT EXISTS menu_items (

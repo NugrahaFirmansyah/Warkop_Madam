@@ -39,10 +39,18 @@ CREATE TABLE IF NOT EXISTS `orders` (
   `order_items` text NOT NULL,
   `notes` text DEFAULT NULL,
   `payment_proof` varchar(255) DEFAULT NULL,
+  `ai_status` enum('valid','review','invalid','skipped') DEFAULT 'skipped',
+  `ai_confidence` int(11) DEFAULT 0,
+  `ai_detected_amount` int(11) DEFAULT NULL,
+  `ai_reference_no` varchar(100) DEFAULT NULL,
+  `ai_analysis_json` longtext DEFAULT NULL,
+  `proof_hash` varchar(64) DEFAULT NULL,
   `status` enum('pending','diproses','selesai','dibatalkan') DEFAULT 'pending',
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   KEY `idx_status` (`status`),
+  KEY `idx_ai_status` (`ai_status`),
+  KEY `idx_proof_hash` (`proof_hash`),
   KEY `idx_created_at` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

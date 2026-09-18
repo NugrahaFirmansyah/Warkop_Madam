@@ -256,10 +256,27 @@ try {
 
                                         <td class="py-3.5 px-4 whitespace-nowrap">
                                             <?php if (!empty($row['payment_proof'])): ?>
-                                                <button onclick="viewPaymentProofModal('<?php echo e($row['payment_proof']); ?>', '<?php echo e($row['order_number'] ?? '#MDM-' . $row['id']); ?>', '<?php echo e($row['customer_name']); ?>', '<?php echo e($row['payment_method']); ?>')" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 text-[10px] font-bold transition">
-                                                    <i class="fa-solid fa-receipt"></i>
-                                                    <span>Lihat Struk</span>
-                                                </button>
+                                                <div class="flex flex-col gap-1 items-start">
+                                                    <button onclick="viewPaymentProofModal(<?php echo htmlspecialchars(json_encode($row), ENT_QUOTES, 'UTF-8'); ?>)" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 text-[10px] font-bold transition">
+                                                        <i class="fa-solid fa-receipt"></i>
+                                                        <span>Lihat Struk</span>
+                                                    </button>
+                                                    
+                                                    <!-- AI Security Status Badge -->
+                                                    <?php if ($row['ai_status'] === 'valid'): ?>
+                                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                                            <i class="fa-solid fa-shield-check text-[9px]"></i> AI Lolos (<?php echo intval($row['ai_confidence']); ?>%)
+                                                        </span>
+                                                    <?php elseif ($row['ai_status'] === 'review'): ?>
+                                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse">
+                                                            <i class="fa-solid fa-triangle-exclamation text-[9px]"></i> AI Perlu Cek
+                                                        </span>
+                                                    <?php elseif ($row['ai_status'] === 'invalid'): ?>
+                                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-bold bg-red-500/20 text-red-300 border border-red-500/30">
+                                                            <i class="fa-solid fa-circle-xmark text-[9px]"></i> AI Ditolak
+                                                        </span>
+                                                    <?php endif; ?>
+                                                </div>
                                             <?php else: ?>
                                                 <span class="text-[10px] text-stone-500 italic">
                                                     <?php echo $row['payment_method'] === 'Tunai' ? 'Tunai di Meja' : 'Belum Ada Struk'; ?>
@@ -382,13 +399,80 @@ try {
             printWin.document.close();
         }
 
-        // Proof Modal Preview
-        function viewPaymentProofModal(imgSrc, orderNo, customer, method) {
+        // Proof Modal Preview with AI Audit Panel
+        function viewPaymentProofModal(orderData) {
+            const imgSrc = orderData.payment_proof || '';
+            const orderNo = orderData.order_number || ('#MDM-' + orderData.id);
+            const customer = orderData.customer_name || '-';
+            const method = orderData.payment_method || '-';
+            const aiStatus = orderData.ai_status || 'skipped';
+            const aiConfidence = orderData.ai_confidence || 0;
+            const aiAmount = orderData.ai_detected_amount ? Number(orderData.ai_detected_amount) : null;
+            const totalPrice = Number(orderData.total_price) || 0;
+            const refNo = orderData.ai_reference_no || '-';
+
+            let analysis = {};
+            try {
+                if (orderData.ai_analysis_json) {
+                    analysis = JSON.parse(orderData.ai_analysis_json);
+                }
+            } catch (e) {}
+
             document.getElementById('proof-modal-img').src = imgSrc;
             document.getElementById('proof-modal-download').href = imgSrc;
             document.getElementById('proof-modal-title').innerText = 'Struk: ' + orderNo;
-            document.getElementById('proof-modal-customer').innerText = 'Pemesan: ' + customer + ' (' + method + ')';
-            document.getElementById('proof-modal-method').innerText = 'BUKTI PEMBAYARAN ' + method.toUpperCase();
+            document.getElementById('proof-modal-customer').innerText = 'Pemesan: ' + customer + ' (Meja: ' + (orderData.table_number || '-') + ')';
+            document.getElementById('proof-modal-method').innerText = 'METODE: ' + method.toUpperCase();
+
+            // Populate AI Audit Card
+            const badgeEl = document.getElementById('modal-ai-badge');
+            const amountDiffEl = document.getElementById('modal-ai-amount-diff');
+            const refNoEl = document.getElementById('modal-ai-ref');
+            const statusTransEl = document.getElementById('modal-ai-trans-status');
+            const reasonsEl = document.getElementById('modal-ai-reasons');
+            const bankWalletEl = document.getElementById('modal-ai-bank');
+
+            document.getElementById('modal-ai-bill').innerText = 'Rp ' + totalPrice.toLocaleString('id-ID');
+            document.getElementById('modal-ai-detected').innerText = aiAmount ? ('Rp ' + aiAmount.toLocaleString('id-ID')) : 'Tidak Terbaca';
+
+            if (aiStatus === 'valid') {
+                badgeEl.className = 'px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 inline-flex items-center gap-1.5';
+                badgeEl.innerHTML = `<i class="fa-solid fa-shield-check"></i> Lolos Validasi AI (${aiConfidence}%)`;
+            } else if (aiStatus === 'review') {
+                badgeEl.className = 'px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 inline-flex items-center gap-1.5';
+                badgeEl.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> Perlu Verifikasi Kasir (${aiConfidence}%)`;
+            } else if (aiStatus === 'invalid') {
+                badgeEl.className = 'px-2.5 py-1 rounded-full text-xs font-bold bg-red-500/20 text-red-300 border border-red-500/40 inline-flex items-center gap-1.5';
+                badgeEl.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> Ditolak AI / Meragukan`;
+            } else {
+                badgeEl.className = 'px-2.5 py-1 rounded-full text-xs font-bold bg-stone-800 text-stone-300 border border-stone-700 inline-flex items-center gap-1.5';
+                badgeEl.innerHTML = `<i class="fa-solid fa-clock"></i> Belum Dipindai AI`;
+            }
+
+            if (aiAmount && aiAmount === totalPrice) {
+                amountDiffEl.className = 'text-emerald-400 font-bold';
+                amountDiffEl.innerText = 'Sesuai (100% Cocok)';
+            } else if (aiAmount && aiAmount < totalPrice) {
+                amountDiffEl.className = 'text-red-400 font-bold';
+                amountDiffEl.innerText = 'Kurang Rp ' + (totalPrice - aiAmount).toLocaleString('id-ID');
+            } else if (aiAmount && aiAmount > totalPrice) {
+                amountDiffEl.className = 'text-amber-400 font-bold';
+                amountDiffEl.innerText = 'Lebih Rp ' + (aiAmount - totalPrice).toLocaleString('id-ID');
+            } else {
+                amountDiffEl.className = 'text-stone-400';
+                amountDiffEl.innerText = '-';
+            }
+
+            refNoEl.innerText = refNo;
+            statusTransEl.innerText = analysis.payment_status || 'BERHASIL';
+            bankWalletEl.innerText = analysis.bank_or_wallet || method;
+
+            if (analysis.reasons && Array.isArray(analysis.reasons) && analysis.reasons.length > 0) {
+                reasonsEl.innerHTML = analysis.reasons.map(r => `<li class="text-[10px] text-stone-300 flex items-start gap-1.5"><i class="fa-solid fa-angle-right text-amber-400 mt-0.5"></i> <span>${r}</span></li>`).join('');
+            } else {
+                reasonsEl.innerHTML = `<li class="text-[10px] text-stone-400 italic">Analisis AI selesai dan terekam di database.</li>`;
+            }
+
             document.getElementById('proof-modal').classList.remove('hidden');
         }
 
@@ -405,28 +489,85 @@ try {
         }, 15000);
     </script>
 
-    <!-- Proof Modal -->
-    <div id="proof-modal" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md hidden flex items-center justify-center p-4" onclick="closeProofModal()">
-        <div class="max-w-md w-full bg-stone-950 border border-amber-500/40 rounded-3xl overflow-hidden shadow-2xl p-4 relative" onclick="event.stopPropagation()">
-            <button onclick="closeProofModal()" class="absolute top-4 right-4 z-10 w-8 h-8 rounded-full bg-black/70 text-stone-300 hover:text-white flex items-center justify-center border border-stone-700">
+    <!-- Proof Modal with AI Security Audit Panel -->
+    <div id="proof-modal" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md hidden flex items-center justify-center p-4 overflow-y-auto" onclick="closeProofModal()">
+        <div class="max-w-2xl w-full bg-stone-950 border border-amber-500/40 rounded-3xl overflow-hidden shadow-2xl p-6 relative my-auto" onclick="event.stopPropagation()">
+            <button onclick="closeProofModal()" class="absolute top-5 right-5 z-10 w-9 h-9 rounded-full bg-black/70 text-stone-300 hover:text-white flex items-center justify-center border border-stone-700">
                 <i class="fa-solid fa-xmark"></i>
             </button>
-            <div class="mb-3">
+            
+            <div class="mb-4 pb-3 border-b border-stone-800">
                 <span class="text-[10px] text-amber-400 font-bold uppercase tracking-wider block" id="proof-modal-method">BUKTI PEMBAYARAN</span>
-                <h4 class="font-bold text-base text-stone-100 font-serif-title" id="proof-modal-title">Struk Transfer</h4>
-                <p class="text-[11px] text-stone-400" id="proof-modal-customer">-</p>
+                <h4 class="font-bold text-lg text-stone-100 font-serif-title" id="proof-modal-title">Struk Transfer</h4>
+                <p class="text-xs text-stone-400" id="proof-modal-customer">-</p>
             </div>
-            <div class="w-full max-h-[70vh] rounded-2xl bg-black overflow-hidden flex items-center justify-center border border-stone-800 p-1">
-                <img id="proof-modal-img" src="" alt="Bukti Pembayaran" class="max-w-full max-h-[65vh] object-contain rounded-xl">
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <!-- Left: Struk Image -->
+                <div class="flex flex-col gap-2">
+                    <div class="w-full h-72 rounded-2xl bg-black overflow-hidden flex items-center justify-center border border-stone-800 p-1">
+                        <img id="proof-modal-img" src="" alt="Bukti Pembayaran" class="max-w-full max-h-full object-contain rounded-xl">
+                    </div>
+                    <a id="proof-modal-download" href="" target="_blank" download class="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-stone-900 hover:bg-stone-800 text-amber-300 text-xs font-bold border border-stone-800 transition">
+                        <i class="fa-solid fa-download text-xs"></i>
+                        <span>Buka / Unduh Gambar Asli</span>
+                    </a>
+                </div>
+
+                <!-- Right: AI Security Audit Card -->
+                <div class="bg-stone-900/70 border border-stone-800 rounded-2xl p-4 flex flex-col justify-between space-y-3">
+                    <div>
+                        <div class="flex items-center justify-between pb-2 border-b border-stone-800">
+                            <span class="text-xs font-bold text-stone-200 flex items-center gap-1.5">
+                                <i class="fa-solid fa-robot text-emerald-400"></i>
+                                Audit AI Anti-Fraud
+                            </span>
+                            <span id="modal-ai-badge"></span>
+                        </div>
+
+                        <div class="space-y-2 mt-3 text-xs">
+                            <div class="flex justify-between">
+                                <span class="text-stone-400">Penyedia / Bank:</span>
+                                <span class="font-semibold text-stone-200" id="modal-ai-bank">-</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-stone-400">Total Tagihan:</span>
+                                <span class="font-bold text-amber-400 font-mono" id="modal-ai-bill">-</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-stone-400">Nominal AI Terbaca:</span>
+                                <span class="font-bold text-emerald-400 font-mono" id="modal-ai-detected">-</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-stone-400">Status Nominal:</span>
+                                <span class="font-semibold" id="modal-ai-amount-diff">-</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-stone-400">Status Struk:</span>
+                                <span class="font-bold text-emerald-400" id="modal-ai-trans-status">BERHASIL</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-stone-400">No. Referensi / RRN:</span>
+                                <span class="font-mono text-[11px] text-stone-300" id="modal-ai-ref">-</span>
+                            </div>
+                        </div>
+
+                        <div class="mt-3 pt-2.5 border-t border-stone-800">
+                            <span class="text-[11px] font-bold text-stone-400 block mb-1">Catatan Analisis AI:</span>
+                            <ul id="modal-ai-reasons" class="space-y-1"></ul>
+                        </div>
+                    </div>
+
+                    <div class="text-[10px] text-stone-500 pt-2 border-t border-stone-800 italic flex items-center gap-1">
+                        <i class="fa-solid fa-shield-halved text-emerald-400 text-[10px]"></i>
+                        <span>Dilindungi oleh Warkop Madam AI Security Engine</span>
+                    </div>
+                </div>
             </div>
-            <div class="mt-3 text-center">
-                <a id="proof-modal-download" href="" target="_blank" download class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-stone-900 hover:bg-stone-800 text-amber-300 text-xs font-bold border border-stone-800 transition">
-                    <i class="fa-solid fa-download text-xs"></i>
-                    <span>Buka / Unduh Gambar Asli</span>
-                </a>
-            </div>
+
         </div>
     </div>
+
 
 </body>
 </html>
