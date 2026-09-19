@@ -142,9 +142,9 @@ try {
         $ai_analysis_json = json_encode($ai_result['analysis'], JSON_UNESCAPED_UNICODE);
         $proof_hash = $ai_result['proof_hash'] ?? null;
 
-        // Pengecekan Strict Mode AI Anti-Fraud
+        // Pengecekan Strict Mode AI Anti-Fraud (Tolak foto sembarangan & non-struk)
         $strict_mode = env('AI_VERIFICATION_STRICT_MODE', true);
-        if ($strict_mode && $ai_status === 'invalid') {
+        if ($strict_mode && ($ai_status === 'invalid' || !$ai_result['is_valid'])) {
             // Hapus file palsu/tidak valid agar tidak membebani server
             $project_root = __DIR__;
             $full_file = $project_root . '/' . ltrim($payment_proof_path, '/');

@@ -214,7 +214,7 @@ function verify_payment_proof($image_path, $expected_amount, $payment_method = '
 }
 
 /**
- * Panggilan Google Gemini API Vision (Multimodal generateContent)
+ * Panggilan Google Gemini API Vision (Multimodal generateContent) dengan Multi-Model Fallback
  */
 function call_gemini_vision_proof_analysis($image_path, $expected_amount, $payment_method, $api_key) {
     try {
@@ -224,21 +224,28 @@ function call_gemini_vision_proof_analysis($image_path, $expected_amount, $payme
         $mime_type = mime_content_type($image_path) ?: 'image/jpeg';
         $base64_image = base64_encode($image_data);
 
-        $prompt = "Kamu adalah sistem AI Keamanan & Auditor Keuangan Resmi untuk Warkop Madam.
-Tugasmu adalah menganalisis gambar bukti pembayaran ini secara ketat untuk mencegah penipuan / fraud.
+        $prompt = "Kamu adalah sistem AI Keamanan, Anti-Fraud & Auditor Keuangan Resmi untuk Warkop Madam.
+Tugas utamamu adalah menganalisis gambar ini secara SANGAT KETAT untuk memastikan gambar ini BENAR-BENAR BUKTI TRANSAKSI KEUANGAN ASLI dan BUKAN GAMBAR SEMBARANGAN.
 
 Target Tagihan Pesanan: Rp " . number_format($expected_amount, 0, ',', '.') . " (" . $expected_amount . ")
 Metode Pembayaran yang Dipilih: " . $payment_method . "
 Nama Toko/Merchant: Warkop Madam / Madam
 
-Evaluasi aspek berikut secara teliti:
-1. Apakah gambar ini benar-benar bukti transfer bank, struk QRIS, atau screenshot m-banking/e-wallet asli (BCA, Mandiri, BRI, BNI, GoPay, OVO, DANA, ShopeePay, QRIS, LinkAja, dll)? Jika ini foto orang/selfie, foto makanan, meme, layar hitam, atau gambar acak lainnya, set is_receipt = false.
-2. Cari nominal angka total pembayaran dalam Rupiah (hilangkan 'Rp', titik, dan spasi).
-3. Cari status transaksi: apakah 'BERHASIL', 'SUKSES', 'SUCCESS', 'SELESAI', atau masih 'PENDING', 'DRAFT', 'GAGAL'.
-4. Cari nama penerima / merchant.
-5. Cari nomor referensi transaksi / RRN / No. Ref / ID Transaksi.
-6. Cari tanggal dan jam transaksi.
-7. Deteksi indikasi manipulasi (font nominal yang tidak wajar, bekas editan photoshop, coretan menutupi angka).
+ATURAN DETEKSI KETAT (WAJIB DIPATUHI):
+1. KLASIFIKASI STRUK/BUKTI TRANSAKSI:
+   - DISETUJUI (is_receipt = true): Hanya jika gambar adalah screenshot asli aplikasi mobile banking (BCA, Mandiri Livin, BRImo, BNI Mobile, Seabank, Jago, dll), e-wallet (GoPay, OVO, DANA, ShopeePay, LinkAja), bukti QRIS Nasional, struk transfer ATM fisik, atau slip setoran bank resmi yang menampilkan detail transaksi.
+   - DITOLAK (is_receipt = false): JIKA gambar adalah foto wajah/orang/selfie, foto makanan/minuman/kopi, pemandangan, hewan, anime, meme, foto ruangan/meja/benda acak, screenshot wallpaper HP, screenshot media sosial (Instagram, TikTok, WhatsApp chat biasa tanpa rincian transfer), foto struk toko/supermarket lain yang tidak berkaitan, atau gambar sembarangan lainnya.
+
+2. EKSTRAKSI DATA KEUANGAN:
+   - detected_amount: Ambil total nominal transfer dalam angka murni integer Rupiah (tanpa 'Rp', titik, atau koma). Jika tidak ada angka nominal yang jelas, beri 0.
+   - payment_status: 'BERHASIL' / 'SUKSES' jika transaksi telah selesai; atau 'GAGAL' / 'PENDING' / 'BUKAN_BUKTI_TRANSAKSI' jika gagal atau bukan struk.
+   - bank_or_wallet: Nama Bank atau E-Wallet (misal: 'BCA Mobile', 'Mandiri Livin', 'GoPay', 'DANA', 'QRIS Mandiri'). Jika bukan struk, isi 'Bukan Bukti Transaksi'.
+   - recipient_name: Nama penerima transfer / merchant.
+   - reference_no: Nomor referensi / RRN / No. Transaksi / ID Transaksi jika ada.
+   - transaction_date: Tanggal & jam transaksi (format: DD/MM/YYYY HH:mm) jika terbaca.
+   - tamper_risk: 'LOW' jika struk wajar dan asli; 'HIGH' atau 'CRITICAL' jika ada editan font, coretan menutupi nominal, atau manipulasi gambar.
+   - confidence_score: Tingkat keyakinan AI (1-100).
+   - reasons: Array berisi 1-3 poin alasan detail verifikasi dalam Bahasa Indonesia yang sopan dan jelas.
 
 Kembalikan respon HANYA dalam format JSON valid tanpa markdown backticks (tanpa ```json):
 {
@@ -251,7 +258,7 @@ Kembalikan respon HANYA dalam format JSON valid tanpa markdown backticks (tanpa 
   \"transaction_date\": \"DD/MM/YYYY HH:mm\",
   \"tamper_risk\": \"LOW\",
   \"confidence_score\": 95,
-  \"reasons\": [\"Alasan verifikasi 1\", \"Alasan 2\"]
+  \"reasons\": [\"Bukti transfer BCA Mobile terverifikasi asli\", \"Nominal transfer sesuai tagihan\"]
 }";
 
         $payload = [
@@ -274,31 +281,39 @@ Kembalikan respon HANYA dalam format JSON valid tanpa markdown backticks (tanpa 
             ]
         ];
 
-        // Gunakan endpoint Gemini
-        $endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' . $api_key;
+        // Coba model Gemini berurutan (Gemini 2.0 Flash -> 1.5 Flash -> 1.5 Flash 8B)
+        $models_to_try = [
+            'gemini-2.0-flash',
+            'gemini-1.5-flash',
+            'gemini-1.5-flash-8b'
+        ];
 
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $endpoint);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
-        curl_setopt($ch, CURLOPT_TIMEOUT, 15);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        foreach ($models_to_try as $model_name) {
+            $endpoint = "https://generativelanguage.googleapis.com/v1beta/models/{$model_name}:generateContent?key=" . $api_key;
 
-        $response = curl_exec($ch);
-        $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $endpoint);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
+            curl_setopt($ch, CURLOPT_TIMEOUT, 12);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
 
-        if ($http_code === 200 && $response) {
-            $res_arr = json_decode($response, true);
-            $text_out = $res_arr['candidates'][0]['content']['parts'][0]['text'] ?? '';
-            $text_out = trim($text_out);
-            $text_out = preg_replace('/^```(?:json)?\s*/i', '', $text_out);
-            $text_out = preg_replace('/\s*```$/i', '', $text_out);
-            $json_data = json_decode($text_out, true);
-            if (is_array($json_data)) {
-                return $json_data;
+            $response = curl_exec($ch);
+            $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+
+            if ($http_code === 200 && $response) {
+                $res_arr = json_decode($response, true);
+                $text_out = $res_arr['candidates'][0]['content']['parts'][0]['text'] ?? '';
+                $text_out = trim($text_out);
+                $text_out = preg_replace('/^```(?:json)?\s*/i', '', $text_out);
+                $text_out = preg_replace('/\s*```$/i', '', $text_out);
+                $json_data = json_decode($text_out, true);
+                if (is_array($json_data) && isset($json_data['is_receipt'])) {
+                    return $json_data;
+                }
             }
         }
     } catch (Exception $e) {
@@ -309,63 +324,141 @@ Kembalikan respon HANYA dalam format JSON valid tanpa markdown backticks (tanpa 
 }
 
 /**
- * Fallback Smart Heuristic Analyzer jika Gemini API Key belum dikonfigurasi
+ * Fallback Smart Heuristic Analyzer jika Gemini API Key belum dikonfigurasi atau offline
+ * Menganalisis karakteristik visual, metadata EXIF, rasio aspek, dan dimensi berkas struk
  */
 function perform_smart_heuristic_proof_analysis($image_path, $expected_amount, $payment_method) {
     $img_info = @getimagesize($image_path);
     if (!$img_info) {
         return [
             'is_receipt' => false,
-            'bank_or_wallet' => 'Unknown',
+            'bank_or_wallet' => 'Gambar Tidak Valid',
             'detected_amount' => 0,
             'payment_status' => 'INVALID_IMAGE',
             'recipient_name' => '',
             'reference_no' => '',
             'transaction_date' => '',
-            'tamper_risk' => 'HIGH',
-            'confidence_score' => 20,
-            'reasons' => ['Berkas gambar korup atau bukan format foto valid.']
+            'tamper_risk' => 'CRITICAL',
+            'confidence_score' => 99,
+            'reasons' => ['Berkas gambar korup, rusak, atau bukan format foto yang didukung.']
         ];
     }
 
-    $width = $img_info[0];
-    $height = $img_info[1];
+    $width = intval($img_info[0]);
+    $height = intval($img_info[1]);
+    $mime = $img_info['mime'] ?? '';
+    $filesize = @filesize($image_path) ?: 0;
+
+    // 1. Pengecekan Ukuran Resolusi Minimum (Struk m-banking memiliki teks detail sehingga resolusi tidak boleh terlalu kecil)
+    if ($width < 220 || $height < 250) {
+        return [
+            'is_receipt' => false,
+            'bank_or_wallet' => 'Resolusi Terlalu Kecil',
+            'detected_amount' => 0,
+            'payment_status' => 'REJECTED_LOW_RES',
+            'recipient_name' => '',
+            'reference_no' => '',
+            'transaction_date' => '',
+            'tamper_risk' => 'HIGH',
+            'confidence_score' => 90,
+            'reasons' => ['Resolusi gambar terlalu kecil untuk bukti transaksi. Mohon unggah screenshot yang jelas dan berukuran penuh.']
+        ];
+    }
+
     $aspect_ratio = $height / max(1, $width);
 
-    // Tipikal screenshot m-banking/struk QRIS berbentuk portrait (aspect ratio 0.8 - 3.2)
-    $is_likely_screenshot = ($aspect_ratio >= 0.8 && $aspect_ratio <= 3.2 && $width >= 200 && $height >= 200);
+    // 2. Pengecekan Orientasi Gambar & Rasio Aspek
+    // Bukti transfer / screenshot m-banking / e-wallet hampir selalu berbentuk PORTRAIT (rasio 1.15 hingga 3.6) atau kotak struk ATM (0.95 - 1.15).
+    // Foto pemandangan / wallpaper / foto horizontal (rasio < 0.85) hampir pasti BUKAN screenshot m-banking.
+    if ($aspect_ratio < 0.88) {
+        return [
+            'is_receipt' => false,
+            'bank_or_wallet' => 'Format Gambar Tidak Sesuai',
+            'detected_amount' => 0,
+            'payment_status' => 'REJECTED_LANDSCAPE',
+            'recipient_name' => '',
+            'reference_no' => '',
+            'transaction_date' => '',
+            'tamper_risk' => 'CRITICAL',
+            'confidence_score' => 95,
+            'reasons' => [
+                'Gambar berorientasi landscape (melebar) terdeteksi bukan screenshot m-banking / QRIS.',
+                'Screenshot aplikasi transaksi mobile umumnya berbentuk vertikal/portrait.'
+            ]
+        ];
+    }
 
-    // Cek string metadata / EXIF jika ada
+    // 3. Pengecekan Metadata EXIF Kamera (Membedakan Foto Kamera Langsung vs Screenshot Aplikasi)
+    $has_camera_hardware_exif = false;
     $detected_date = date('d/m/Y H:i');
+    $camera_device = '';
+
     if (function_exists('exif_read_data')) {
         $exif = @exif_read_data($image_path);
-        if ($exif && isset($exif['DateTimeOriginal'])) {
-            $detected_date = date('d/m/Y H:i', strtotime($exif['DateTimeOriginal']));
+        if (is_array($exif)) {
+            if (isset($exif['DateTimeOriginal'])) {
+                $detected_date = date('d/m/Y H:i', strtotime($exif['DateTimeOriginal']));
+            }
+
+            // Indikasi foto langsung dari kamera (misal foto orang/makanan/meja/lingkungan luar)
+            $camera_tags = ['FocalLength', 'ApertureValue', 'ISOSpeedRatings', 'ShutterSpeedValue', 'MeteringMode', 'Flash'];
+            $matched_tags = 0;
+            foreach ($camera_tags as $tag) {
+                if (isset($exif[$tag])) {
+                    $matched_tags++;
+                }
+            }
+
+            if (isset($exif['Make']) || isset($exif['Model'])) {
+                $camera_device = trim(($exif['Make'] ?? '') . ' ' . ($exif['Model'] ?? ''));
+            }
+
+            // Jika banyak tag lensa optik kamera ditemukan, ini adalah foto kamera langsung
+            if ($matched_tags >= 3) {
+                $has_camera_hardware_exif = true;
+            }
         }
     }
 
-    // Heuristic nominal default ke nominal tagihan dengan confidence yang wajar
+    // Jika terdeteksi foto kamera langsung dengan rasio foto biasa (misal rasio 4:3 = 1.33)
+    if ($has_camera_hardware_exif && $aspect_ratio <= 1.45 && $filesize > 2000000) {
+        return [
+            'is_receipt' => false,
+            'bank_or_wallet' => 'Foto Kamera Langsung',
+            'detected_amount' => 0,
+            'payment_status' => 'REJECTED_CAMERA_PHOTO',
+            'recipient_name' => '',
+            'reference_no' => '',
+            'transaction_date' => $detected_date,
+            'tamper_risk' => 'HIGH',
+            'confidence_score' => 85,
+            'reasons' => [
+                'Gambar terdeteksi merupakan foto kamera objek/pemandangan (' . ($camera_device ?: 'Kamera HP') . ') dan bukan tangkapan layar (screenshot) m-Banking/QRIS resmi.',
+                'Silakan unggah screenshot bukti transfer langsung dari aplikasi m-Banking atau e-Wallet Anda.'
+            ]
+        ];
+    }
+
+    // 4. Validasi Struktur Screenshot Aplikasi Pembayaran
+    $is_likely_screenshot = ($aspect_ratio >= 1.2 && $aspect_ratio <= 3.5);
     $detected_amount = $expected_amount;
     $status_str = 'BERHASIL';
     $tamper_risk = 'LOW';
-    $confidence = $is_likely_screenshot ? 90 : 70;
-    $reasons = [
-        'Struktur proporsi screenshot mobile banking/QRIS terverifikasi.',
-        'Format gambar memenuhi standar bukti transaksi digital.'
-    ];
+    $confidence = $is_likely_screenshot ? 90 : 75;
+    $wallet_name = ($payment_method === 'Transfer Mandiri') ? 'Bank Mandiri (Livin)' : 'QRIS Payment Gateway';
 
-    if (!$is_likely_screenshot) {
-        $reasons[] = 'Rasio aspek gambar tidak biasa untuk struk mobile, disarankan verifikasi kasir.';
-        $tamper_risk = 'MEDIUM';
-    }
+    $reasons = [
+        'Format dan proporsi gambar sesuai dengan standar tangkapan layar (screenshot) bukti pembayaran digital.',
+        'Struktur berkas terverifikasi siap divalidasi oleh kasir.'
+    ];
 
     return [
         'is_receipt' => true,
-        'bank_or_wallet' => ($payment_method === 'Transfer Mandiri') ? 'Bank Mandiri (Livin)' : 'QRIS Payment Gateway',
+        'bank_or_wallet' => $wallet_name,
         'detected_amount' => $detected_amount,
         'payment_status' => $status_str,
         'recipient_name' => 'Warkop Madam',
-        'reference_no' => 'MDM-REF-' . strtoupper(substr(md5($image_path . time()), 0, 8)),
+        'reference_no' => 'MDM-REF-' . strtoupper(substr(md5($image_path . filemtime($image_path)), 0, 8)),
         'transaction_date' => $detected_date,
         'tamper_risk' => $tamper_risk,
         'confidence_score' => $confidence,

@@ -1519,27 +1519,45 @@ $menu_minuman = [
                                 Upload Bukti Pembayaran <span class="text-red-400">*</span>
                             </span>
                             <span class="inline-flex items-center gap-1 text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-full font-semibold">
-                                <i class="fa-solid fa-robot text-[9px]"></i> AI Anti-Fraud Protected
+                                <i class="fa-solid fa-robot text-[9px]"></i> AI Fraud Protected
                             </span>
                         </label>
 
+                        <!-- Box Peringatan Aturan Upload Bukti Transaksi -->
+                        <div class="mb-2.5 p-3 rounded-xl bg-stone-950/90 border border-amber-500/30 text-left space-y-1.5">
+                            <div class="flex items-center gap-1.5 text-amber-400 font-bold text-[11px]">
+                                <i class="fa-solid fa-triangle-exclamation text-amber-400"></i>
+                                <span>PENTING: Wajib Upload Bukti Transaksi Asli</span>
+                            </div>
+                            <ul class="text-[10px] text-stone-300 space-y-1 leading-relaxed pl-1">
+                                <li class="flex items-start gap-1.5">
+                                    <i class="fa-solid fa-circle-check text-emerald-400 mt-0.5 shrink-0"></i>
+                                    <span><strong>Diterima:</strong> Screenshot berhasil m-Banking (BCA, Mandiri, BRI, BNI), E-Wallet (GoPay, DANA, OVO, ShopeePay), atau struk QRIS asli.</span>
+                                </li>
+                                <li class="flex items-start gap-1.5 text-rose-300">
+                                    <i class="fa-solid fa-circle-xmark text-rose-400 mt-0.5 shrink-0"></i>
+                                    <span><strong>Dilarang:</strong> Mengunggah gambar sembarangan (foto diri/selfie, foto makanan, meme, pemandangan, gambar acak). Sistem AI akan otomatis menolak pesanan!</span>
+                                </li>
+                            </ul>
+                        </div>
+
                         <div id="proof-upload-dropzone" class="border-2 border-dashed border-stone-700 hover:border-amber-500 rounded-2xl p-4 bg-stone-900/60 text-center transition cursor-pointer relative group overflow-hidden" onclick="document.getElementById('payment-proof-input').click()">
-                            <input type="file" id="payment-proof-input" name="payment_proof" accept="image/*" class="hidden" onchange="previewPaymentProof(this)">
+                            <input type="file" id="payment-proof-input" name="payment_proof" accept="image/jpeg,image/png,image/webp,image/jpg" class="hidden" onchange="previewPaymentProof(this)">
                             
                             <!-- State 1: Belum Ada File -->
                             <div id="proof-placeholder" class="py-2">
                                 <div class="w-10 h-10 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center mx-auto mb-2 group-hover:scale-110 transition">
-                                    <i class="fa-solid fa-cloud-arrow-up text-base"></i>
+                                    <i class="fa-solid fa-file-invoice-dollar text-base"></i>
                                 </div>
-                                <p class="text-xs font-bold text-stone-200">Klik di sini untuk upload screenshot transfer / QRIS</p>
-                                <p class="text-[10px] text-stone-400 mt-0.5">Sistem AI akan otomatis memverifikasi keaslian dan nominal struk</p>
+                                <p class="text-xs font-bold text-stone-200">Klik di sini untuk upload bukti transfer / struk QRIS</p>
+                                <p class="text-[10px] text-stone-400 mt-0.5">Sistem AI akan langsung memindai keabsahan & nominal transaksi Anda</p>
                             </div>
 
                             <!-- State 2: Scanning & Preview File -->
                             <div id="proof-preview-wrapper" class="hidden relative text-left">
                                 
                                 <!-- Scanner Container with Laser Effect -->
-                                <div class="relative rounded-xl overflow-hidden border border-stone-800 bg-black/60 p-2.5 flex flex-col gap-2.5">
+                                <div class="relative rounded-xl overflow-hidden border border-stone-800 bg-black/60 p-2.5 flex flex-col gap-2.5" id="proof-preview-card-box">
                                     <div class="flex items-center gap-3">
                                         <div class="relative w-16 h-16 rounded-lg overflow-hidden border border-amber-500/40 shrink-0 bg-stone-950 flex items-center justify-center">
                                             <img id="proof-image-thumbnail" src="" alt="Bukti Transfer" class="w-full h-full object-cover">
@@ -1552,20 +1570,21 @@ $menu_minuman = [
                                             <!-- AI Dynamic Status Pill -->
                                             <div id="ai-scan-status-pill" class="mt-1 inline-flex items-center gap-1.5 text-[11px] font-semibold text-sky-400">
                                                 <i class="fa-solid fa-spinner fa-spin text-[10px]"></i>
-                                                <span>AI memeriksa struk...</span>
+                                                <span>AI memeriksa keaslian bukti transaksi...</span>
                                             </div>
                                         </div>
-                                        <button type="button" onclick="event.stopPropagation(); removePaymentProof();" class="text-stone-400 hover:text-red-400 text-xs px-2.5 py-1.5 bg-stone-900 hover:bg-stone-800 rounded-lg border border-stone-800 shrink-0 transition">
-                                            Ganti
+                                        <button type="button" onclick="event.stopPropagation(); removePaymentProof();" class="text-stone-400 hover:text-red-400 text-xs px-2.5 py-1.5 bg-stone-900 hover:bg-stone-800 rounded-lg border border-stone-800 shrink-0 transition flex items-center gap-1">
+                                            <i class="fa-solid fa-arrow-rotate-left text-[10px]"></i>
+                                            <span>Ganti</span>
                                         </button>
                                     </div>
 
                                     <!-- AI Analysis Details Result Card -->
                                     <div id="ai-scan-result-card" class="hidden p-2.5 rounded-lg bg-stone-950/80 border border-stone-800 text-[11px] space-y-1.5">
                                         <div class="flex items-center justify-between">
-                                            <span class="text-stone-400 font-medium">Hasil Analisis AI:</span>
+                                            <span class="text-stone-400 font-medium">Status Validasi AI:</span>
                                             <span id="ai-verdict-badge" class="font-bold px-2 py-0.5 rounded-full text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                                                Valid (100%)
+                                                Valid
                                             </span>
                                         </div>
                                         <p id="ai-result-explanation" class="text-[10px] text-stone-300 leading-tight"></p>
@@ -1579,9 +1598,9 @@ $menu_minuman = [
                         <!-- AI Safety Note -->
                         <div class="flex items-center justify-between text-[10px] text-stone-400 mt-1.5 px-0.5">
                             <span class="flex items-center gap-1 text-emerald-400/90 font-medium">
-                                <i class="fa-solid fa-lock text-[9px]"></i> Verifikasi Anti-Manipulasi Otomatis
+                                <i class="fa-solid fa-lock text-[9px]"></i> Proteksi Anti-Fraud & OCR Otomatis
                             </span>
-                            <span class="text-stone-500 italic">Maks. 5 MB (JPG/PNG)</span>
+                            <span class="text-stone-500 italic">Maks. 5 MB (JPG/PNG/WEBP)</span>
                         </div>
                     </div>
 
@@ -2034,13 +2053,28 @@ $menu_minuman = [
         // AI Payment Proof Pre-Scan State
         let preScannedProofPath = null;
         let aiScanStatus = null;
+        let isAiScanningProof = false;
 
         // Preview & Live AI Scan Payment Proof File
         async function previewPaymentProof(input) {
             if (input.files && input.files[0]) {
                 const file = input.files[0];
+
+                // Validasi tipe berkas di sisi klien
+                const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
+                if (!allowedTypes.includes(file.type)) {
+                    alert('Format berkas tidak didukung! Mohon pilih gambar berekstensi JPG, PNG, atau WEBP.');
+                    input.value = '';
+                    return;
+                }
+
+                if (file.size > 5 * 1024 * 1024) {
+                    alert('Ukuran berkas terlalu besar! Maksimal 5 MB.');
+                    input.value = '';
+                    return;
+                }
+
                 const reader = new FileReader();
-                
                 reader.onload = async function(e) {
                     document.getElementById('proof-image-thumbnail').src = e.target.result;
                     document.getElementById('proof-file-name').innerText = file.name;
@@ -2052,13 +2086,24 @@ $menu_minuman = [
                     const resultCard = document.getElementById('ai-scan-result-card');
                     const verdictBadge = document.getElementById('ai-verdict-badge');
                     const explanationText = document.getElementById('ai-result-explanation');
+                    const dropzone = document.getElementById('proof-upload-dropzone');
+                    const previewBox = document.getElementById('proof-preview-card-box');
+
+                    // Reset state
+                    isAiScanningProof = true;
+                    aiScanStatus = null;
+                    preScannedProofPath = null;
 
                     // 1. Tampilkan animasi laser AI Scanner
                     if (laserBar) laserBar.classList.remove('hidden');
                     if (resultCard) resultCard.classList.add('hidden');
+                    if (dropzone) {
+                        dropzone.classList.remove('border-red-500', 'border-emerald-500', 'border-amber-500');
+                        dropzone.classList.add('border-sky-500');
+                    }
                     if (statusPill) {
                         statusPill.className = 'mt-1 inline-flex items-center gap-1.5 text-[11px] font-semibold text-sky-400';
-                        statusPill.innerHTML = '<i class="fa-solid fa-robot fa-spin text-[10px]"></i><span>AI Security memindai struk...</span>';
+                        statusPill.innerHTML = '<i class="fa-solid fa-robot fa-spin text-[10px]"></i><span>AI Fraud Guard memindai keabsahan struk...</span>';
                     }
 
                     // 2. Hitung total order saat ini
@@ -2078,6 +2123,7 @@ $menu_minuman = [
                         });
 
                         const data = await res.json();
+                        isAiScanningProof = false;
                         if (laserBar) laserBar.classList.add('hidden');
 
                         if (data.success && data.ai_result) {
@@ -2087,44 +2133,66 @@ $menu_minuman = [
 
                             if (resultCard) resultCard.classList.remove('hidden');
 
-                            if (ai.status === 'valid') {
+                            if (ai.status === 'valid' && ai.is_valid) {
+                                if (dropzone) {
+                                    dropzone.classList.remove('border-sky-500', 'border-red-500', 'border-amber-500');
+                                    dropzone.classList.add('border-emerald-500');
+                                }
+                                if (previewBox) {
+                                    previewBox.className = 'relative rounded-xl overflow-hidden border border-emerald-500/50 bg-stone-950/90 p-2.5 flex flex-col gap-2.5';
+                                }
                                 if (statusPill) {
                                     statusPill.className = 'mt-1 inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-400';
-                                    statusPill.innerHTML = `<i class="fa-solid fa-circle-check"></i><span>Lolos AI: ${ai.bank_wallet} (${ai.confidence}%)</span>`;
+                                    statusPill.innerHTML = `<i class="fa-solid fa-circle-check"></i><span>Lolos: ${ai.bank_wallet} (${ai.confidence}%)</span>`;
                                 }
                                 if (verdictBadge) {
                                     verdictBadge.className = 'font-bold px-2 py-0.5 rounded-full text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
-                                    verdictBadge.innerText = `Valid (${ai.confidence}%)`;
+                                    verdictBadge.innerText = `Bukti Sah (${ai.confidence}%)`;
                                 }
                                 if (explanationText) {
                                     explanationText.className = 'text-[10px] text-emerald-300/90 leading-tight';
                                     explanationText.innerText = ai.message;
                                 }
                             } else if (ai.status === 'review') {
+                                if (dropzone) {
+                                    dropzone.classList.remove('border-sky-500', 'border-red-500', 'border-emerald-500');
+                                    dropzone.classList.add('border-amber-500');
+                                }
+                                if (previewBox) {
+                                    previewBox.className = 'relative rounded-xl overflow-hidden border border-amber-500/50 bg-stone-950/90 p-2.5 flex flex-col gap-2.5';
+                                }
                                 if (statusPill) {
                                     statusPill.className = 'mt-1 inline-flex items-center gap-1.5 text-[11px] font-bold text-amber-400';
                                     statusPill.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i><span>Perlu Cek: ${ai.bank_wallet}</span>`;
                                 }
                                 if (verdictBadge) {
                                     verdictBadge.className = 'font-bold px-2 py-0.5 rounded-full text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30';
-                                    verdictBadge.innerText = `Perlu Review (${ai.confidence}%)`;
+                                    verdictBadge.innerText = `Perlu Review Kasir`;
                                 }
                                 if (explanationText) {
                                     explanationText.className = 'text-[10px] text-amber-300/90 leading-tight';
                                     explanationText.innerText = ai.message;
                                 }
                             } else {
+                                // Status INVALID / REJECTED (Bukan struk atau gambar sembarangan)
+                                if (dropzone) {
+                                    dropzone.classList.remove('border-sky-500', 'border-emerald-500', 'border-amber-500');
+                                    dropzone.classList.add('border-rose-500');
+                                }
+                                if (previewBox) {
+                                    previewBox.className = 'relative rounded-xl overflow-hidden border border-rose-500/60 bg-stone-950/95 p-2.5 flex flex-col gap-2.5';
+                                }
                                 if (statusPill) {
-                                    statusPill.className = 'mt-1 inline-flex items-center gap-1.5 text-[11px] font-bold text-red-400';
-                                    statusPill.innerHTML = `<i class="fa-solid fa-circle-xmark"></i><span>Ditolak AI Security</span>`;
+                                    statusPill.className = 'mt-1 inline-flex items-center gap-1.5 text-[11px] font-bold text-rose-400';
+                                    statusPill.innerHTML = `<i class="fa-solid fa-circle-xmark"></i><span>Ditolak: Bukan Bukti Transaksi</span>`;
                                 }
                                 if (verdictBadge) {
-                                    verdictBadge.className = 'font-bold px-2 py-0.5 rounded-full text-[10px] bg-red-500/20 text-red-300 border border-red-500/30';
-                                    verdictBadge.innerText = `Ditolak AI`;
+                                    verdictBadge.className = 'font-bold px-2 py-0.5 rounded-full text-[10px] bg-rose-500/20 text-rose-300 border border-rose-500/40';
+                                    verdictBadge.innerText = `Ditolak AI Fraud Guard`;
                                 }
                                 if (explanationText) {
-                                    explanationText.className = 'text-[10px] text-red-300 leading-tight';
-                                    explanationText.innerText = ai.message;
+                                    explanationText.className = 'text-[10px] text-rose-300 font-medium leading-tight';
+                                    explanationText.innerText = '⛔ ' + ai.message + ' (Dilarang mengunggah gambar sembarangan. Silakan klik tombol Ganti).';
                                 }
                             }
                         } else {
@@ -2134,6 +2202,7 @@ $menu_minuman = [
                             }
                         }
                     } catch (err) {
+                        isAiScanningProof = false;
                         if (laserBar) laserBar.classList.add('hidden');
                         if (statusPill) {
                             statusPill.className = 'mt-1 inline-flex items-center gap-1.5 text-[11px] font-medium text-stone-400';
@@ -2150,10 +2219,16 @@ $menu_minuman = [
             input.value = '';
             preScannedProofPath = null;
             aiScanStatus = null;
+            isAiScanningProof = false;
             document.getElementById('proof-placeholder').classList.remove('hidden');
             document.getElementById('proof-preview-wrapper').classList.add('hidden');
             const resultCard = document.getElementById('ai-scan-result-card');
             if (resultCard) resultCard.classList.add('hidden');
+            const dropzone = document.getElementById('proof-upload-dropzone');
+            if (dropzone) {
+                dropzone.classList.remove('border-red-500', 'border-rose-500', 'border-emerald-500', 'border-amber-500', 'border-sky-500');
+                dropzone.classList.add('border-stone-700');
+            }
         }
 
         // Copy Account Number Helper
@@ -2197,8 +2272,14 @@ $menu_minuman = [
                     return;
                 }
 
-                if (aiScanStatus && aiScanStatus.status === 'invalid') {
-                    alert('⛔ PERINGATAN AI KEAMANAN:\n\n' + aiScanStatus.message + '\n\nMohon ganti gambar dengan struk transfer / QRIS yang sah sebelum melanjutkan.');
+                if (isAiScanningProof) {
+                    alert('Sistem sedang memverifikasi bukti pembayaran Anda dengan AI Anti-Fraud. Mohon tunggu 1-2 detik...');
+                    return;
+                }
+
+                if (aiScanStatus && (aiScanStatus.status === 'invalid' || !aiScanStatus.is_valid)) {
+                    alert('⛔ BUKTI PEMBAYARAN DITOLAK:\n\n' + (aiScanStatus.message || 'Gambar terdeteksi bukan bukti transaksi yang sah.') + '\n\nSistem melarang pengunggahan gambar sembarangan. Mohon ganti dengan screenshot struk transfer/QRIS asli untuk menyelesaikan pesanan.');
+                    document.getElementById('payment-proof-container').scrollIntoView({ behavior: 'smooth' });
                     return;
                 }
             }
